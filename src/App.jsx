@@ -121,15 +121,6 @@ const newRound = async () => {
             ))}
           </ul>
 
-          {game.status === "waiting" && (
-            <button
-              className="bg-purple-500 text-white p-2 rounded w-full"
-              onClick={startGame}
-            >
-              🚀 Rozpocznij grę
-            </button>
-          )}
-
           {role && game.status === "in-progress" && (
             <div className="mt-4 p-4 border rounded">
               {role === "spy" ? (
@@ -181,16 +172,21 @@ const newRound = async () => {
       </p>
     )}
   </div>
-)}
-
-{game && game.status === "in-progress" && game.hostId === playerId && (
-  <button
-    className="bg-orange-500 text-white p-2 rounded w-full mt-4"
-    onClick={newRound}
-  >
-    🔄 Nowa runda (zmień lokalizację)
-  </button>
-)}
+  )}
+  {game && game.status === "in-progress" && game.hostId === playerId && (
+    <div className="mt-4 p-4 border rounded">
+    <p>
+        📍 Lokalizacja:{" "}
+        <span className="font-bold">{game.location}</span>
+      </p>
+    <button
+      className="bg-orange-500 text-white p-2 rounded w-full mt-4"
+      onClick={newRound}
+    >
+      🔄 Nowa runda (zmień lokalizację)
+    </button>
+    </div>
+  )}
   </div>
 )}
     </div>
