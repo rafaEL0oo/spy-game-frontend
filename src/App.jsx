@@ -18,7 +18,6 @@ const createGame = async (playerName) => {
     status: "waiting",
     hostId: playerId,
     players: {
-      [playerId]: { name: playerName, role: null }
     }
   });
   setGameId(id);
@@ -94,7 +93,7 @@ const newRound = async () => {
           />
           <button
             className="bg-green-500 text-white p-2 rounded w-full"
-            onClick={() => createGame("Sala operacyjna")}
+            onClick={() => createGame("Mistrz gry")}
           >
             ➕ Stwórz nową grę
           </button>
