@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { db, ref, set, update, onValue } from "./firebase";
+import { db, ref, set, update, onValue, get, remove } from "./firebase";
 import { nanoid } from "nanoid";
 
 export default function App() {
@@ -10,63 +10,75 @@ export default function App() {
   const [role, setRole] = useState(null);
 
   // 🔹 Tworzenie gry
-const createGame = async (playerName) => {
-  const id = nanoid(6);
-  await set(ref(db, "games/" + id), {
-    createdAt: Date.now(),
-    location: "",
-    status: "waiting",
-    hostId: playerId,
-    players: {
-    }
-  });
-  setGameId(id);
-  setName(playerName);
-};
+  const createGame = async (playerName) => {
+    const id = nanoid(6);
+    await set(ref(db, "games/" + id), {
+      createdAt: Date.now(),
+      location: "",
+      status: "waiting",
+      hostId: playerId,
+      players: {}
+    });
+    setGameId(id);
+    setName(playerName);
+  };
 
-  // 🔹 Dołączanie gracza
- const joinGame = async (id, playerName) => {
-  setGameId(id);
-  setName(playerName);
-  await update(ref(db, `games/${id}/players/${playerId}`), {
-    name: playerName,
-    role: null
-  });
-};
+  // 🔹 Dołączanie gracza (z walidacją ID)
+  const joinGame = async (id, playerName) => {
+    const gameRef = ref(db, `games/${id}`);
+    const snapshot = await get(gameRef);
+    if (!snapshot.exists()) {
+      alert("Gra o podanym ID nie istnieje!");
+      return;
+    }
+
+    setGameId(id);
+    setName(playerName);
+    await update(ref(db, `games/${id}/players/${playerId}`), {
+      name: playerName,
+      role: null
+    });
+  };
 
   // 🔹 Rozpoczęcie gry
   const startGame = async () => {
-  if (!game || game.hostId !== playerId) return; // tylko host
-  if (!game.location) {
-    alert("Podaj lokalizację przed startem gry!");
-    return;
-  }
+    if (!game || game.hostId !== playerId) return;
+    if (!game.location) {
+      alert("Podaj lokalizację przed startem gry!");
+      return;
+    }
 
-  const ids = Object.keys(game.players || {});
-  const spyIndex = Math.floor(Math.random() * ids.length);
+    const ids = Object.keys(game.players || {});
+    const spyIndex = Math.floor(Math.random() * ids.length);
 
-  ids.forEach((id, index) => {
-    update(ref(db, `games/${gameId}/players/${id}`), {
-      role: index === spyIndex ? "spy" : "player"
+    ids.forEach((id, index) => {
+      update(ref(db, `games/${gameId}/players/${id}`), {
+        role: index === spyIndex ? "spy" : "player"
+      });
     });
-  });
 
-  await update(ref(db, "games/" + gameId), { status: "in-progress" });
-};
+    await update(ref(db, "games/" + gameId), { status: "in-progress" });
+  };
 
-const newRound = async () => {
-  if (!game || game.hostId !== playerId) return;
-  await update(ref(db, "games/" + gameId), {
-    status: "waiting",
-    location: ""
-  });
-  // czyścimy role graczy
-  Object.keys(game.players || {}).forEach((id) => {
-    update(ref(db, `games/${gameId}/players/${id}`), { role: null });
-  });
-};
+  // 🔹 Nowa runda
+  const newRound = async () => {
+    if (!game || game.hostId !== playerId) return;
+    await update(ref(db, "games/" + gameId), {
+      status: "waiting",
+      location: ""
+    });
+    Object.keys(game.players || {}).forEach((id) => {
+      update(ref(db, `games/${gameId}/players/${id}`), { role: null });
+    });
+  };
 
-  // 🔹 Nasłuchiwanie zmian w grze
+  // 🔹 Wyrzucenie gracza
+  const kickPlayer = async (id) => {
+    if (!game || game.hostId !== playerId) return;
+    await remove(ref(db, `games/${gameId}/players/${id}`));
+  };
+
+  // 🔹 Nasłuchiwanie zmian
   useEffect(() => {
     if (!gameId) return;
     const unsubscribe = onValue(ref(db, "games/" + gameId), (snapshot) => {
@@ -93,7 +105,7 @@ const newRound = async () => {
           />
           <button
             className="bg-green-500 text-white p-2 rounded w-full"
-            onClick={() => createGame("Mistrz gry")}
+            onClick={() => createGame(name || "Mistrz gry")}
           >
             ➕ Stwórz nową grę
           </button>
@@ -111,13 +123,22 @@ const newRound = async () => {
 
       {game && (
         <div className="mt-4 space-y-2">
-          <p>
-            <b>ID gry:</b> {gameId}
-          </p>
+          <p><b>ID gry:</b> {gameId}</p>
+
           <h2 className="text-xl">👥 Gracze:</h2>
           <ul className="list-disc list-inside">
-            {Object.values(game.players || {}).map((p, i) => (
-              <li key={i}>{p.name}</li>
+            {Object.entries(game.players || {}).map(([id, p]) => (
+              <li key={id} className="flex justify-between items-center">
+                {p.name}
+                {game.hostId === playerId && id !== playerId && (
+                  <button
+                    className="text-red-500 ml-2 text-sm"
+                    onClick={() => kickPlayer(id)}
+                  >
+                    ❌ Wyrzuć
+                  </button>
+                )}
+              </li>
             ))}
           </ul>
 
@@ -126,10 +147,7 @@ const newRound = async () => {
               {role === "spy" ? (
                 <p className="text-red-600 font-bold text-xl">🕵️ Jesteś SZPIEGIEM!</p>
               ) : (
-                <p>
-                  📍 Lokalizacja:{" "}
-                  <span className="font-bold">{game.location}</span>
-                </p>
+                <p>📍 Lokalizacja: <span className="font-bold">{game.location}</span></p>
               )}
             </div>
           )}
@@ -137,58 +155,40 @@ const newRound = async () => {
       )}
 
       {game && game.status === "waiting" && (
-  <div className="mt-4 space-y-2">
-    {game.hostId === playerId && (
-      <>
-        <input
-          className="border p-2 w-full"
-          placeholder="Podaj lokalizację"
-          value={game.location || ""}
-          onChange={(e) =>
-            update(ref(db, "games/" + gameId), { location: e.target.value })
-          }
-        />
-        <button
-          className="bg-purple-500 text-white p-2 rounded w-full"
-          onClick={startGame}
-        >
-          🚀 Rozpocznij grę
-        </button>
-      </>
-    )}
+        <div className="mt-4 space-y-2">
+          {game.hostId === playerId && (
+            <>
+              <input
+                className="border p-2 w-full"
+                placeholder="Podaj lokalizację"
+                value={game.location || ""}
+                onChange={(e) =>
+                  update(ref(db, "games/" + gameId), { location: e.target.value })
+                }
+              />
+              {game.location && (
+                <p>📍 Aktualna lokalizacja: <span className="font-bold">{game.location}</span></p>
+              )}
+              <button
+                className="bg-purple-500 text-white p-2 rounded w-full"
+                onClick={startGame}
+              >
+                🚀 Rozpocznij grę
+              </button>
+              <button
+                className="bg-orange-500 text-white p-2 rounded w-full mt-2"
+                onClick={newRound}
+              >
+                🔄 Nowa runda
+              </button>
+            </>
+          )}
 
-    {game.hostId !== playerId && (
-      <p className="italic text-gray-600">⏳ Czekaj na mistrza gry...</p>
-    )}
-
-    {game.status === "in-progress" && role && (
-  <div className="mt-4 p-4 border rounded">
-    {role === "spy" ? (
-      <p className="text-red-600 font-bold text-xl">🕵️ Jesteś SZPIEGIEM!</p>
-    ) : (
-      <p>
-        📍 Lokalizacja:{" "}
-        <span className="font-bold">{game.location}</span>
-      </p>
-    )}
-  </div>
-  )}
-  {game && game.status === "in-progress" && game.hostId === playerId && (
-    <div className="mt-4 p-4 border rounded">
-    <p>
-        📍 Lokalizacja:{" "}
-        <span className="font-bold">{game.location}</span>
-      </p>
-    <button
-      className="bg-orange-500 text-white p-2 rounded w-full mt-4"
-      onClick={newRound}
-    >
-      🔄 Nowa runda (zmień lokalizację)
-    </button>
-    </div>
-  )}
-  </div>
-)}
+          {game.hostId !== playerId && (
+            <p className="italic text-gray-600">⏳ Czekaj na mistrza gry...</p>
+          )}
+        </div>
+      )}
     </div>
   );
 }
