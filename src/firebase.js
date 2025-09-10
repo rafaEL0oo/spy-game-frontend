@@ -6,7 +6,7 @@ import {
   set,
   onValue,
   push,
-  update
+  update,  get , remove
 } from "firebase/database";
 
 const firebaseConfig = {
@@ -22,4 +22,4 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 export const db = getDatabase(app);
-export { ref, set, onValue, push, update };
+export { ref, set, onValue, push, update , get, remove };
