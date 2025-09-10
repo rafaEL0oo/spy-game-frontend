@@ -13,6 +13,7 @@ export default function App() {
 const createGame = async (playerName) => {
   const id = nanoid(6);
   await set(ref(db, "games/" + id), {
+    createdAt: Date.now(),
     location: "",
     status: "waiting",
     hostId: playerId,
