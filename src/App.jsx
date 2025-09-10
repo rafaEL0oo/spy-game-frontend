@@ -1,120 +1,127 @@
 import { useState, useEffect } from "react";
-import io from "socket.io-client";
-
-// 🔴 ZMIEŃ na swój backend z Render
-const BACKEND_URL = "https://spy-game-server-sewf.onrender.com";
-const socket = io(BACKEND_URL);
+import { db, ref, set, update, onValue } from "./firebase";
+import { nanoid } from "nanoid";
 
 export default function App() {
   const [gameId, setGameId] = useState("");
-  const [playerName, setPlayerName] = useState("");
-  const [joined, setJoined] = useState(false);
+  const [playerId] = useState(() => nanoid(8));
+  const [name, setName] = useState("");
+  const [game, setGame] = useState(null);
   const [role, setRole] = useState(null);
-  const [location, setLocation] = useState("");
-  const [players, setPlayers] = useState({});
-  const [isMaster, setIsMaster] = useState(false);
 
-  const createGame = async () => {
-    const res = await fetch(`${BACKEND_URL}/create`);
-    const data = await res.json();
-    setGameId(data.gameId);
-    setIsMaster(true);
+  // 🔹 Tworzenie gry
+  const createGame = async (location) => {
+    const id = nanoid(6);
+    await set(ref(db, "games/" + id), {
+      location,
+      players: {},
+      status: "waiting"
+    });
+    setGameId(id);
   };
 
-  const joinGame = () => {
-    socket.emit("joinGame", { gameId, name: playerName });
-    setJoined(true);
+  // 🔹 Dołączanie gracza
+  const joinGame = async (id, playerName) => {
+    setGameId(id);
+    await update(ref(db, `games/${id}/players/${playerId}`), {
+      name: playerName,
+      role: null
+    });
   };
 
-  const startGame = () => {
-    socket.emit("startGame", { gameId, location });
+  // 🔹 Rozpoczęcie gry
+  const startGame = async () => {
+    if (!game) return;
+    const ids = Object.keys(game.players || {});
+    const spyIndex = Math.floor(Math.random() * ids.length);
+
+    ids.forEach((id, index) => {
+      update(ref(db, `games/${gameId}/players/${id}`), {
+        role: index === spyIndex ? "spy" : "player"
+      });
+    });
+
+    await update(ref(db, "games/" + gameId), { status: "in-progress" });
   };
 
+  // 🔹 Nasłuchiwanie zmian w grze
   useEffect(() => {
-    socket.on("role", (data) => {
-      setRole(data.role);
-      if (data.location) setLocation(data.location);
+    if (!gameId) return;
+    const unsubscribe = onValue(ref(db, "games/" + gameId), (snapshot) => {
+      const data = snapshot.val();
+      setGame(data);
+      if (data?.players?.[playerId]?.role) {
+        setRole(data.players[playerId].role);
+      }
     });
+    return () => unsubscribe();
+  }, [gameId, playerId]);
 
-    socket.on("playersUpdate", (data) => {
-      setPlayers(data);
-    });
+  return (
+    <div className="p-6 max-w-md mx-auto">
+      <h1 className="text-2xl font-bold mb-4">🎭 Szpieg</h1>
 
-    return () => {
-      socket.off("role");
-      socket.off("playersUpdate");
-    };
-  }, []);
+      {!gameId && (
+        <div className="space-y-2">
+          <input
+            className="border p-2 w-full"
+            placeholder="Twoje imię"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
+          <button
+            className="bg-green-500 text-white p-2 rounded w-full"
+            onClick={() => createGame("Sala operacyjna")}
+          >
+            ➕ Stwórz nową grę
+          </button>
+          <button
+            className="bg-blue-500 text-white p-2 rounded w-full"
+            onClick={() => {
+              const id = prompt("Podaj ID gry:");
+              if (id && name) joinGame(id, name);
+            }}
+          >
+            🔗 Dołącz do gry
+          </button>
+        </div>
+      )}
 
-  if (!joined && !isMaster) {
-    return (
-      <div className="p-4 flex flex-col gap-2 max-w-sm mx-auto">
-        <button
-          onClick={createGame}
-          className="p-2 bg-blue-500 text-white rounded"
-        >
-          Stwórz grę
-        </button>
-        <input
-          placeholder="Podaj kod gry"
-          value={gameId}
-          onChange={(e) => setGameId(e.target.value)}
-          className="p-2 border rounded"
-        />
-        <input
-          placeholder="Twoje imię"
-          value={playerName}
-          onChange={(e) => setPlayerName(e.target.value)}
-          className="p-2 border rounded"
-        />
-        <button
-          onClick={joinGame}
-          className="p-2 bg-green-500 text-white rounded"
-        >
-          Dołącz do gry
-        </button>
-      </div>
-    );
-  }
+      {game && (
+        <div className="mt-4 space-y-2">
+          <p>
+            <b>ID gry:</b> {gameId}
+          </p>
+          <h2 className="text-xl">👥 Gracze:</h2>
+          <ul className="list-disc list-inside">
+            {Object.values(game.players || {}).map((p, i) => (
+              <li key={i}>{p.name}</li>
+            ))}
+          </ul>
 
-  if (isMaster) {
-    return (
-      <div className="p-4 max-w-md mx-auto">
-        <h1 className="text-xl font-bold">Kod gry: {gameId}</h1>
-        <p>Udostępnij go graczom.</p>
-        <h2 className="mt-4 font-bold">Gracze:</h2>
-        <ul className="list-disc pl-6">
-          {Object.values(players).map((p, i) => (
-            <li key={i}>{p.name}</li>
-          ))}
-        </ul>
-        <input
-          placeholder="Wpisz lokalizację"
-          value={location}
-          onChange={(e) => setLocation(e.target.value)}
-          className="p-2 border rounded mt-2 w-full"
-        />
-        <button
-          onClick={startGame}
-          className="p-2 bg-red-500 text-white rounded mt-2 w-full"
-        >
-          Rozpocznij grę
-        </button>
-      </div>
-    );
-  }
+          {game.status === "waiting" && (
+            <button
+              className="bg-purple-500 text-white p-2 rounded w-full"
+              onClick={startGame}
+            >
+              🚀 Rozpocznij grę
+            </button>
+          )}
 
-  if (role) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        {role === "spy" ? (
-          <h1 className="text-4xl font-bold text-red-600">SZPIEG</h1>
-        ) : (
-          <h1 className="text-3xl font-bold">Lokalizacja: {location}</h1>
-        )}
-      </div>
-    );
-  }
-
-  return <p className="p-4">Czekasz na rozpoczęcie gry...</p>;
+          {role && game.status === "in-progress" && (
+            <div className="mt-4 p-4 border rounded">
+              {role === "spy" ? (
+                <p className="text-red-600 font-bold text-xl">🕵️ Jesteś SZPIEGIEM!</p>
+              ) : (
+                <p>
+                  📍 Lokalizacja:{" "}
+                  <span className="font-bold">{game.location}</span>
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
