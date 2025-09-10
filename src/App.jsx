@@ -170,10 +170,8 @@ const newRound = async () => {
     {game.hostId !== playerId && (
       <p className="italic text-gray-600">⏳ Czekaj na mistrza gry...</p>
     )}
-  </div>
-)}
 
-{game.status === "in-progress" && role && (
+    {game.status === "in-progress" && role && (
   <div className="mt-4 p-4 border rounded">
     {role === "spy" ? (
       <p className="text-red-600 font-bold text-xl">🕵️ Jesteś SZPIEGIEM!</p>
@@ -193,6 +191,8 @@ const newRound = async () => {
   >
     🔄 Nowa runda (zmień lokalizację)
   </button>
+)}
+  </div>
 )}
     </div>
   );
