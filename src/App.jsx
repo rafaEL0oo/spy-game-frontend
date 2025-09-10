@@ -10,39 +10,61 @@ export default function App() {
   const [role, setRole] = useState(null);
 
   // 🔹 Tworzenie gry
-  const createGame = async (location) => {
-    const id = nanoid(6);
-    await set(ref(db, "games/" + id), {
-      location,
-      players: {},
-      status: "waiting"
-    });
-    setGameId(id);
-  };
+const createGame = async (playerName) => {
+  const id = nanoid(6);
+  await set(ref(db, "games/" + id), {
+    location: "",
+    status: "waiting",
+    hostId: playerId,
+    players: {
+      [playerId]: { name: playerName, role: null }
+    }
+  });
+  setGameId(id);
+  setName(playerName);
+};
 
   // 🔹 Dołączanie gracza
-  const joinGame = async (id, playerName) => {
-    setGameId(id);
-    await update(ref(db, `games/${id}/players/${playerId}`), {
-      name: playerName,
-      role: null
-    });
-  };
+ const joinGame = async (id, playerName) => {
+  setGameId(id);
+  setName(playerName);
+  await update(ref(db, `games/${id}/players/${playerId}`), {
+    name: playerName,
+    role: null
+  });
+};
 
   // 🔹 Rozpoczęcie gry
   const startGame = async () => {
-    if (!game) return;
-    const ids = Object.keys(game.players || {});
-    const spyIndex = Math.floor(Math.random() * ids.length);
+  if (!game || game.hostId !== playerId) return; // tylko host
+  if (!game.location) {
+    alert("Podaj lokalizację przed startem gry!");
+    return;
+  }
 
-    ids.forEach((id, index) => {
-      update(ref(db, `games/${gameId}/players/${id}`), {
-        role: index === spyIndex ? "spy" : "player"
-      });
+  const ids = Object.keys(game.players || {});
+  const spyIndex = Math.floor(Math.random() * ids.length);
+
+  ids.forEach((id, index) => {
+    update(ref(db, `games/${gameId}/players/${id}`), {
+      role: index === spyIndex ? "spy" : "player"
     });
+  });
 
-    await update(ref(db, "games/" + gameId), { status: "in-progress" });
-  };
+  await update(ref(db, "games/" + gameId), { status: "in-progress" });
+};
+
+const newRound = async () => {
+  if (!game || game.hostId !== playerId) return;
+  await update(ref(db, "games/" + gameId), {
+    status: "waiting",
+    location: ""
+  });
+  // czyścimy role graczy
+  Object.keys(game.players || {}).forEach((id) => {
+    update(ref(db, `games/${gameId}/players/${id}`), { role: null });
+  });
+};
 
   // 🔹 Nasłuchiwanie zmian w grze
   useEffect(() => {
@@ -122,6 +144,55 @@ export default function App() {
           )}
         </div>
       )}
+
+      {game.status === "waiting" && (
+  <div className="mt-4 space-y-2">
+    {game.hostId === playerId && (
+      <>
+        <input
+          className="border p-2 w-full"
+          placeholder="Podaj lokalizację"
+          value={game.location || ""}
+          onChange={(e) =>
+            update(ref(db, "games/" + gameId), { location: e.target.value })
+          }
+        />
+        <button
+          className="bg-purple-500 text-white p-2 rounded w-full"
+          onClick={startGame}
+        >
+          🚀 Rozpocznij grę
+        </button>
+      </>
+    )}
+
+    {game.hostId !== playerId && (
+      <p className="italic text-gray-600">⏳ Czekaj na mistrza gry...</p>
+    )}
+  </div>
+)}
+
+{game.status === "in-progress" && role && (
+  <div className="mt-4 p-4 border rounded">
+    {role === "spy" ? (
+      <p className="text-red-600 font-bold text-xl">🕵️ Jesteś SZPIEGIEM!</p>
+    ) : (
+      <p>
+        📍 Lokalizacja:{" "}
+        <span className="font-bold">{game.location}</span>
+      </p>
+    )}
+  </div>
+)}
+
+{game.status === "in-progress" && game.hostId === playerId && (
+  <button
+    className="bg-orange-500 text-white p-2 rounded w-full mt-4"
+    onClick={newRound}
+  >
+    🔄 Nowa runda (zmień lokalizację)
+  </button>
+)}
     </div>
   );
 }
