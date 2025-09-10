@@ -154,41 +154,55 @@ export default function App() {
         </div>
       )}
 
-      {game && game.status === "waiting" && (
-        <div className="mt-4 space-y-2">
-          {game.hostId === playerId && (
-            <>
-              <input
-                className="border p-2 w-full"
-                placeholder="Podaj lokalizację"
-                value={game.location || ""}
-                onChange={(e) =>
-                  update(ref(db, "games/" + gameId), { location: e.target.value })
-                }
-              />
-              {game.location && (
-                <p>📍 Aktualna lokalizacja: <span className="font-bold">{game.location}</span></p>
-              )}
-              <button
-                className="bg-purple-500 text-white p-2 rounded w-full"
-                onClick={startGame}
-              >
-                🚀 Rozpocznij grę
-              </button>
-              <button
-                className="bg-orange-500 text-white p-2 rounded w-full mt-2"
-                onClick={newRound}
-              >
-                🔄 Nowa runda
-              </button>
-            </>
-          )}
+      {/* Panel hosta – zawsze widoczny dla mistrza gry */}
+{game && game.hostId === playerId && (
+  <div className="mt-4 space-y-2">
+    <input
+      className="border p-2 w-full"
+      placeholder="Podaj lokalizację"
+      value={game.location || ""}
+      onChange={(e) =>
+        update(ref(db, "games/" + gameId), { location: e.target.value })
+      }
+    />
 
-          {game.hostId !== playerId && (
-            <p className="italic text-gray-600">⏳ Czekaj na mistrza gry...</p>
-          )}
-        </div>
-      )}
+    {game.location && (
+      <p>
+        📍 Aktualna lokalizacja: <span className="font-bold">{game.location}</span>
+      </p>
+    )}
+
+    {game.status === "waiting" && (
+      <button
+        className="bg-purple-500 text-white p-2 rounded w-full"
+        onClick={startGame}
+      >
+        🚀 Rozpocznij grę
+      </button>
+    )}
+
+    <button
+      className="bg-orange-500 text-white p-2 rounded w-full mt-2"
+      onClick={newRound}
+    >
+      🔄 Nowa runda
+    </button>
+  </div>
+)}
+
+{/* Panel gracza – komunikaty dla nie-hostów */}
+{game && game.hostId !== playerId && (
+  <div className="mt-4 space-y-2">
+    {game.status === "waiting" && (
+      <p className="italic text-gray-600">⏳ Czekaj na mistrza gry...</p>
+    )}
+
+    {game.status === "in-progress" && !role && (
+      <p className="italic text-gray-600">⏳ Przydzielanie ról...</p>
+    )}
+  </div>
+)}
+
     </div>
   );
 }
