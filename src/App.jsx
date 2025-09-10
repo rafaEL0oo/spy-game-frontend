@@ -146,7 +146,7 @@ const newRound = async () => {
         </div>
       )}
 
-      {game.status === "waiting" && (
+      {game && game.status === "waiting" && (
   <div className="mt-4 space-y-2">
     {game.hostId === playerId && (
       <>
@@ -184,7 +184,7 @@ const newRound = async () => {
   </div>
 )}
 
-{game.status === "in-progress" && game.hostId === playerId && (
+{game && game.status === "in-progress" && game.hostId === playerId && (
   <button
     className="bg-orange-500 text-white p-2 rounded w-full mt-4"
     onClick={newRound}
