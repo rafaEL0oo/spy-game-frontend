@@ -2,6 +2,7 @@
   "name": "spy-game-frontend",
   "version": "1.0.0",
   "private": true,
+  "homepage": "https://rafael0oo.github.io/spy-game-frontend/",
   "scripts": {
     "dev": "vite",
     "build": "vite build",

@@ -16,7 +16,8 @@ const firebaseConfig = {
   storageBucket: "spy-game-778fe.firebasestorage.app",
   messagingSenderId: "531628812108",
   appId: "1:531628812108:web:f1e13250d2f739371751e9",
-  measurementId: "G-7T1M7G35YZ"
+  measurementId: "G-7T1M7G35YZ",
+  databaseURL: "https://spy-game-778fe-default-rtdb.europe-west1.firebasedatabase.app",
 };
 
 const app = initializeApp(firebaseConfig);
