@@ -1,3 +1,4 @@
+import Logo from "./image/SPYGAMELOGO.png";
 import { useState, useEffect } from "react";
 import { db, ref, set, update, onValue, get, remove } from "./firebase";
 import { nanoid } from "nanoid";
@@ -92,7 +93,8 @@ export default function App() {
   }, [gameId, playerId]);
 
   return (
-    <div className="p-6 max-w-md mx-auto">
+    <div className="p-6 max-w-md mx-auto text-center bg-black text-white">
+      <img src={Logo} alt="Szpieg Logo" className="mx-auto mb-4 w-32 h-32" />
       <h1 className="text-2xl font-bold mb-4">🎭 Szpieg</h1>
 
       {!gameId && (
