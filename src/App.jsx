@@ -1,4 +1,4 @@
-import Logo from "./image/SPYGAMELOGO.png";
+import Logo from "/image/SPYGAMELOGO.png";
 import { useState, useEffect } from "react";
 import { db, ref, set, update, onValue, get, remove } from "./firebase";
 import { nanoid } from "nanoid";
