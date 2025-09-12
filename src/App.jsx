@@ -9,6 +9,7 @@ export default function App() {
   const [name, setName] = useState("");
   const [game, setGame] = useState(null);
   const [role, setRole] = useState(null);
+  const [showInstructions, setShowInstructions] = useState(false);
 
   // 🔹 Tworzenie gry
   const createGame = async (playerName) => {
@@ -18,7 +19,8 @@ export default function App() {
       location: "",
       status: "waiting",
       hostId: playerId,
-      players: {}
+      players: {},
+      spyCount: 1
     });
     setGameId(id);
     setName(playerName);
@@ -50,11 +52,13 @@ export default function App() {
     }
 
     const ids = Object.keys(game.players || {});
-    const spyIndex = Math.floor(Math.random() * ids.length);
+    const spyCount = game.spyCount || 1;
+    const shuffled = ids.sort(() => 0.5 - Math.random());
+    const spies = shuffled.slice(0, Math.min(spyCount, ids.length));
 
-    ids.forEach((id, index) => {
+    ids.forEach((id) => {
       update(ref(db, `games/${gameId}/players/${id}`), {
-        role: index === spyIndex ? "spy" : "player"
+        role: spies.includes(id) ? "spy" : "player"
       });
     });
 
@@ -168,6 +172,22 @@ export default function App() {
       }
     />
 
+    {game.players && Object.keys(game.players).length > 5 && (
+      <select
+        className="border p-2 w-full"
+        value={game.spyCount || 1}
+        onChange={(e) =>
+          update(ref(db, "games/" + gameId), { spyCount: Number(e.target.value) })
+        }
+      >
+        {[1, 2, 3].map((count) => (
+          <option key={count} value={count}>
+            {count} {count === 1 ? "szpieg" : "szpiegów"}
+          </option>
+        ))}
+      </select>
+    )}
+
     {game.location && (
       <p>
         📍 Aktualna lokalizacja: <span className="font-bold">{game.location}</span>
@@ -205,6 +225,42 @@ export default function App() {
   </div>
 )}
 
+  <div className="mt-8">
+    <button
+      className="underline text-blue-400"
+      onClick={() => setShowInstructions(!showInstructions)}
+    >
+      Jak grać?
+    </button>
+    {showInstructions && (
+      <div className="mt-2 text-left bg-gray-800 p-4 rounded">
+        <p className="mb-2">
+          🎭 <b>Szpieg</b> to gra towarzyska, w której jeden lub kilku graczy wciela się w rolę szpiega, a reszta graczy zna wspólną lokalizację.
+        </p>
+        <p className="mb-2">
+          ✅ <b>Przebieg gry:</b><br/>
+          - Mistrz gry wybiera lokalizację i rozpoczyna rundę.<br/>
+          - Każdy gracz (oprócz szpiega) widzi nazwę lokalizacji.<br/>
+          - Szpieg nie zna lokalizacji, widzi tylko informację, że jest szpiegiem.<br/>
+          - Mistrz kolejno zadaje pytania związane z lokalizacją, np. „Czy często tu bywasz?”.<br/>
+          - Odpowiedzi muszą być krótkie i nie zdradzać zbyt łatwo miejsca.<br/>
+          - Szpieg stara się nie dać poznać, że nie zna lokalizacji, i próbuje ją odgadnąć.
+        </p>
+        <p>
+          🏆 <b>Koniec gry:</b><br/>
+          - Gra kończy się, gdy ktoś wskaże osobę, którą uważa za szpiega - używając zwrotu: "Wiem kto jest szpiegiem...".<br/>
+          - Jeśli szpieg zostanie poprawnie zdemaskowany.<br/>
+          - Jeśli szpieg odgadnie lokalizację.
+        </p>
+        <p>
+          🥇 <b>Punktacja:</b><br/>
+          - Szpieg poprawnie zdemaskowany: <br/> zgadujący +3pkt / szpieg -2pkt / reszta 0pkt.<br/>
+          - Szpieg błędnie wskazany: <br/>szpieg +3pkt / zgadujący -2pkt / reszta 0pkt.<br/>
+          - Szpieg odgadnie lokalizację: <br/> +4pkt / reszta -2pkt
+        </p>
+      </div>
+    )}
+  </div>
     </div>
   );
 }
